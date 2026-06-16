@@ -1,4 +1,6 @@
-<img src="public/icon.svg" alt="Contentful Auditor" width="64" />
+<p align="center">
+  <img src="public/icon.svg" alt="Contentful Auditor" width="120" />
+</p>
 
 # Contentful Auditor
 
