@@ -33,24 +33,28 @@ function extractLinks(entry: EntryProps): Array<{ fieldId: string; link: LinkVal
   return links;
 }
 
-export function checkBrokenReferences(entries: EntryProps[], assets: AssetProps[]): Finding[] {
-  const validEntryIds = new Set(entries.map((e) => e.sys.id));
-  const validAssetIds = new Set(assets.map((a) => a.sys.id));
+export function checkUnpublishedReferences(entries: EntryProps[], assets: AssetProps[]): Finding[] {
+  const unpublishedEntryIds = new Set(
+    entries.filter((e) => !e.sys.publishedVersion).map((e) => e.sys.id)
+  );
+  const unpublishedAssetIds = new Set(
+    assets.filter((a) => !a.sys.publishedVersion).map((a) => a.sys.id)
+  );
   const findings: Finding[] = [];
 
   for (const entry of entries) {
     for (const { fieldId, link } of extractLinks(entry)) {
-      const isValid =
+      const isUnpublished =
         link.sys.linkType === 'Entry'
-          ? validEntryIds.has(link.sys.id)
-          : validAssetIds.has(link.sys.id);
+          ? unpublishedEntryIds.has(link.sys.id)
+          : unpublishedAssetIds.has(link.sys.id);
 
-      if (!isValid) {
+      if (isUnpublished) {
         findings.push({
-          id: `broken-ref-${entry.sys.id}-${fieldId}-${link.sys.id}`,
-          severity: 'error',
-          category: 'Broken References',
-          message: `Entry references a missing ${link.sys.linkType.toLowerCase()} (${link.sys.id}) via field "${fieldId}"`,
+          id: `unpublished-ref-${entry.sys.id}-${fieldId}-${link.sys.id}`,
+          severity: 'warning',
+          category: 'Unpublished References',
+          message: `Entry references an unpublished ${link.sys.linkType.toLowerCase()} (${link.sys.id}) via field "${fieldId}"`,
           target: { type: 'entry', id: entry.sys.id },
         });
       }

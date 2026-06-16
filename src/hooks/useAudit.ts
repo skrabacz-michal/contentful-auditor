@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import { PageAppSDK } from '@contentful/app-sdk';
 import { useSDK } from '@contentful/react-apps-toolkit';
-import type { AssetProps, ContentTypeProps, EntryProps } from 'contentful-management';
+import type { AssetProps, ContentTypeProps, EditorInterfaceProps, EntryProps } from 'contentful-management';
 import { runContentChecks } from '../checks/content';
 import { runContentModelChecks } from '../checks/contentModel';
+import { computeMetrics, MetricScores } from '../checks/computeMetrics';
+import { EXCLUDED_CONTENT_TYPE_IDS } from '../checks/rules.config';
 import { CategoryStatus, Finding } from '../checks/types';
 
 type CategoryState = {
@@ -17,6 +19,7 @@ export type AuditState = {
   progress: { fetched: number; total: number } | null;
   contentModel: CategoryState;
   content: CategoryState;
+  metrics: MetricScores | null;
 };
 
 type AuditAction =
@@ -25,7 +28,7 @@ type AuditAction =
   | { type: 'FETCH_PROGRESS'; fetched: number; total: number }
   | { type: 'CATEGORY_COMPLETE'; category: 'contentModel' | 'content'; findings: Finding[] }
   | { type: 'CATEGORY_ERROR'; category: 'contentModel' | 'content'; error: string }
-  | { type: 'COMPLETE' };
+  | { type: 'COMPLETE'; metrics: MetricScores };
 
 const idle: CategoryState = { status: 'idle', findings: [] };
 
@@ -34,6 +37,7 @@ const initialState: AuditState = {
   progress: null,
   contentModel: idle,
   content: idle,
+  metrics: null,
 };
 
 function reducer(state: AuditState, action: AuditAction): AuditState {
@@ -58,7 +62,7 @@ function reducer(state: AuditState, action: AuditAction): AuditState {
         [action.category]: { status: 'error', findings: [], error: action.error },
       };
     case 'COMPLETE':
-      return { ...state, overallStatus: 'complete', progress: null };
+      return { ...state, overallStatus: 'complete', progress: null, metrics: action.metrics };
     default:
       return state;
   }
@@ -100,7 +104,7 @@ export function useAudit() {
     dispatch({ type: 'FETCH_START' });
 
     try {
-      const [contentTypes, entries, assets] = await Promise.all([
+      const [contentTypes, entries, assets, editorInterfaces, locales] = await Promise.all([
         sdk.cma.contentType
           .getMany({ query: { limit: 1000 } })
           .then((r) => r.items as ContentTypeProps[]),
@@ -110,33 +114,53 @@ export function useAudit() {
         sdk.cma.asset
           .getMany({ query: { limit: 1000 } })
           .then((r) => r.items as AssetProps[]),
+        sdk.cma.editorInterface
+          .getMany({})
+          .then((r) => r.items as EditorInterfaceProps[]),
+        sdk.cma.locale
+          .getMany({})
+          .then((r) => r.items),
       ]);
 
-      await Promise.all([
+      const filteredEntries = entries.filter(
+        (e) => !EXCLUDED_CONTENT_TYPE_IDS.has(e.sys.contentType.sys.id)
+      );
+      const filteredContentTypes = contentTypes.filter(
+        (ct) => !EXCLUDED_CONTENT_TYPE_IDS.has(ct.sys.id)
+      );
+
+      const [contentModelFindings, contentFindings] = await Promise.all([
         Promise.resolve()
-          .then(() => runContentModelChecks(contentTypes))
-          .then((findings) =>
-            dispatch({ type: 'CATEGORY_COMPLETE', category: 'contentModel', findings })
-          )
-          .catch((e) =>
-            dispatch({ type: 'CATEGORY_ERROR', category: 'contentModel', error: errorMessage(e) })
-          ),
+          .then(() => runContentModelChecks(contentTypes, editorInterfaces))
+          .then((findings) => {
+            dispatch({ type: 'CATEGORY_COMPLETE', category: 'contentModel', findings });
+            return findings;
+          })
+          .catch((e) => {
+            dispatch({ type: 'CATEGORY_ERROR', category: 'contentModel', error: errorMessage(e) });
+            return [] as Finding[];
+          }),
         Promise.resolve()
-          .then(() => runContentChecks(entries, assets))
-          .then((findings) =>
-            dispatch({ type: 'CATEGORY_COMPLETE', category: 'content', findings })
-          )
-          .catch((e) =>
-            dispatch({ type: 'CATEGORY_ERROR', category: 'content', error: errorMessage(e) })
-          ),
+          .then(() => runContentChecks(entries, assets, contentTypes))
+          .then((findings) => {
+            dispatch({ type: 'CATEGORY_COMPLETE', category: 'content', findings });
+            return findings;
+          })
+          .catch((e) => {
+            dispatch({ type: 'CATEGORY_ERROR', category: 'content', error: errorMessage(e) });
+            return [] as Finding[];
+          }),
       ]);
+
+      const allFindings = [...contentModelFindings, ...contentFindings];
+      const metrics = computeMetrics(filteredEntries, assets, filteredContentTypes, locales.length, allFindings);
+      dispatch({ type: 'COMPLETE', metrics });
     } catch (e) {
       const msg = errorMessage(e);
       dispatch({ type: 'CATEGORY_ERROR', category: 'contentModel', error: msg });
       dispatch({ type: 'CATEGORY_ERROR', category: 'content', error: msg });
+      dispatch({ type: 'COMPLETE', metrics: computeMetrics([], [], [], 1, []) });
     }
-
-    dispatch({ type: 'COMPLETE' });
   }, [sdk]);
 
   useEffect(() => {

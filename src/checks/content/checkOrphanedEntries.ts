@@ -32,6 +32,7 @@ export function checkOrphanedEntries(entries: EntryProps[]): Finding[] {
     .map((entry) => ({
       id: `orphan-${entry.sys.id}`,
       severity: 'warning' as const,
+      category: 'Orphaned Entries',
       message: `Entry "${entry.sys.id}" (${entry.sys.contentType.sys.id}) is not referenced by any other entry`,
       target: { type: 'entry' as const, id: entry.sys.id },
     }));

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#0f766e"/>
+
+  <!-- Lens glow -->
+  <circle cx="26" cy="26" r="17" fill="white" fill-opacity="0.1"/>
+
+  <!-- Magnifying glass circle -->
+  <circle cx="26" cy="26" r="15" stroke="white" stroke-width="2.5" fill="none"/>
+
+  <!-- Checkmark inside lens -->
+  <path d="M19 26l5 5 9-10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Handle -->
+  <path d="M37 37l11 11" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Sparkle accent -->
+  <path d="M50 8l1.2 2.8L54 12l-2.8 1.2L50 16l-1.2-2.8L46 12l2.8-1.2z" fill="white" fill-opacity="0.65"/>
+</svg>

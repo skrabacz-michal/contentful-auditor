@@ -7,6 +7,7 @@ export type NavigationTarget =
 export type Finding = {
   id: string;
   severity: Severity;
+  category?: string;
   message: string;
   target: NavigationTarget | null;
 };

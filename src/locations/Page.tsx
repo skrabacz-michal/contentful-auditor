@@ -1,9 +1,12 @@
 import { PageAppSDK } from '@contentful/app-sdk';
-import { Box, Button, Flex, Heading, Tabs, Text } from '@contentful/f36-components';
+import { Box, Button, Flex, Heading, Spinner, Tabs, Text } from '@contentful/f36-components';
 import { useSDK } from '@contentful/react-apps-toolkit';
+import { useEffect, useState } from 'react';
 import { Finding } from '../checks/types';
 import { AuditProgress } from '../components/AuditProgress';
+import { CategoryFilter } from '../components/CategoryFilter';
 import { FindingsTable } from '../components/FindingsTable';
+import { OverviewTab } from '../components/OverviewTab';
 import { SummaryHeader } from '../components/SummaryHeader';
 import { useAudit } from '../hooks/useAudit';
 
@@ -11,10 +14,28 @@ const Page = () => {
   const sdk = useSDK<PageAppSDK>();
   const { state, rerun } = useAudit();
 
+  const [contentModelCategory, setContentModelCategory] = useState<string | null>(null);
+  const [contentCategory, setContentCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state.overallStatus === 'fetching') {
+      setContentModelCategory(null);
+      setContentCategory(null);
+    }
+  }, [state.overallStatus]);
+
   const allFindings: Finding[] = [
     ...state.contentModel.findings,
     ...state.content.findings,
   ];
+
+  const filteredContentModelFindings = contentModelCategory
+    ? state.contentModel.findings.filter((f) => f.category === contentModelCategory)
+    : state.contentModel.findings;
+
+  const filteredContentFindings = contentCategory
+    ? state.content.findings.filter((f) => f.category === contentCategory)
+    : state.content.findings;
 
   const isRunning =
     state.overallStatus === 'fetching' ||
@@ -35,7 +56,7 @@ const Page = () => {
   return (
     <Box padding="spacingL">
       <Flex justifyContent="space-between" alignItems="center" marginBottom="spacingL">
-        <Heading>Contentful Auditor</Heading>
+        <Heading as="h1" style={{ fontSize: '2rem', lineHeight: 1.2 }}>Contentful Auditor</Heading>
         <Button variant="secondary" isDisabled={isRunning} onClick={rerun}>
           Re-run Audit
         </Button>
@@ -47,8 +68,9 @@ const Page = () => {
 
       {state.overallStatus === 'complete' && <SummaryHeader findings={allFindings} />}
 
-      <Tabs defaultTab="contentModel">
+      <Tabs defaultTab="overview">
         <Tabs.List>
+          <Tabs.Tab panelId="overview">Overview</Tabs.Tab>
           <Tabs.Tab panelId="contentModel">
             Content Model
             {state.contentModel.status === 'complete' && (
@@ -67,11 +89,30 @@ const Page = () => {
           </Tabs.Tab>
         </Tabs.List>
 
+        <Tabs.Panel id="overview">
+          <Box paddingTop="spacingM">
+            {state.overallStatus === 'complete' && state.metrics ? (
+              <OverviewTab metrics={state.metrics} />
+            ) : (
+              <Flex justifyContent="center" padding="spacingXl">
+                <Spinner size="large" />
+              </Flex>
+            )}
+          </Box>
+        </Tabs.Panel>
+
         <Tabs.Panel id="contentModel">
           <Box paddingTop="spacingM">
+            {state.contentModel.status === 'complete' && (
+              <CategoryFilter
+                findings={state.contentModel.findings}
+                selected={contentModelCategory}
+                onChange={setContentModelCategory}
+              />
+            )}
             <FindingsTable
               status={state.contentModel.status}
-              findings={state.contentModel.findings}
+              findings={filteredContentModelFindings}
               error={state.contentModel.error}
               onOpen={openTarget}
             />
@@ -80,9 +121,16 @@ const Page = () => {
 
         <Tabs.Panel id="content">
           <Box paddingTop="spacingM">
+            {state.content.status === 'complete' && (
+              <CategoryFilter
+                findings={state.content.findings}
+                selected={contentCategory}
+                onChange={setContentCategory}
+              />
+            )}
             <FindingsTable
               status={state.content.status}
-              findings={state.content.findings}
+              findings={filteredContentFindings}
               error={state.content.error}
               onOpen={openTarget}
             />
