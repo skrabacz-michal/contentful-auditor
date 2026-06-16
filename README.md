@@ -1,3 +1,5 @@
+<img src="public/icon.svg" alt="Contentful Auditor" width="64" />
+
 # Contentful Auditor
 
 A Contentful page-location app for Ottobock SE & Co. KGaA that audits the health of a Contentful space — content model conventions, content quality, and overall space health.
