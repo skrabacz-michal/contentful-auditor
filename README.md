@@ -4,7 +4,7 @@
 
 # Contentful Auditor
 
-A Contentful page-location app for Ottobock SE & Co. KGaA that audits the health of a Contentful space — content model conventions, content quality, and overall space health.
+A Contentful page-location app that audits the health of any Contentful space — content model conventions, content quality, and overall space health.
 
 ## Features
 
