@@ -3,6 +3,7 @@ import { EXCLUDED_CONTENT_TYPE_IDS } from '../rules.config';
 import { Finding } from '../types';
 import { checkBrokenReferences } from './checkBrokenReferences';
 import { checkOrphanedEntries } from './checkOrphanedEntries';
+import { checkOrphanedAssets } from './checkOrphanedAssets';
 import { checkUnpublishedReferences } from './checkUnpublishedReferences';
 import { checkStaleContent } from './checkStaleContent';
 import { checkEmptyRequiredFields } from './checkEmptyRequiredFields';
@@ -18,6 +19,7 @@ export function runContentChecks(
   return [
     ...checkBrokenReferences(filtered, assets),
     ...checkOrphanedEntries(filtered),
+    ...checkOrphanedAssets(filtered, assets),
     ...checkUnpublishedReferences(filtered, assets),
     ...checkStaleContent(filtered),
     ...checkEmptyRequiredFields(filtered, contentTypes),

@@ -1,5 +1,6 @@
 {
   "locations": [
-    { "location": "page" }
+    { "location": "page" },
+    { "location": "app-config" }
   ]
 }

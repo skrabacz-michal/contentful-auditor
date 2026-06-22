@@ -6,6 +6,7 @@ import { Finding } from '../checks/types';
 import { AuditProgress } from '../components/AuditProgress';
 import { CategoryFilter } from '../components/CategoryFilter';
 import { FindingsTable } from '../components/FindingsTable';
+import { MigrationsTab } from '../components/MigrationsTab';
 import { OverviewTab } from '../components/OverviewTab';
 import { SummaryHeader } from '../components/SummaryHeader';
 import { useAudit } from '../hooks/useAudit';
@@ -14,6 +15,7 @@ const Page = () => {
   const sdk = useSDK<PageAppSDK>();
   const { state, rerun } = useAudit();
 
+  const [activeTab, setActiveTab] = useState('overview');
   const [contentModelCategory, setContentModelCategory] = useState<string | null>(null);
   const [contentCategory, setContentCategory] = useState<string | null>(null);
 
@@ -49,6 +51,8 @@ const Page = () => {
     const url =
       finding.target.type === 'entry'
         ? `${base}/entries/${finding.target.id}`
+        : finding.target.type === 'asset'
+        ? `${base}/assets/${finding.target.id}`
         : `${base}/content_types/${finding.target.id}/edit`;
     window.open(url, '_blank');
   }
@@ -68,7 +72,7 @@ const Page = () => {
 
       {state.overallStatus === 'complete' && <SummaryHeader findings={allFindings} />}
 
-      <Tabs defaultTab="overview">
+      <Tabs defaultTab="overview" onTabChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab panelId="overview">Overview</Tabs.Tab>
           <Tabs.Tab panelId="contentModel">
@@ -87,6 +91,9 @@ const Page = () => {
               </Text>
             )}
           </Tabs.Tab>
+          {state.hasMigrationHistory && (
+            <Tabs.Tab panelId="migrations">Migrations</Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel id="overview">
@@ -136,6 +143,11 @@ const Page = () => {
             />
           </Box>
         </Tabs.Panel>
+        {state.hasMigrationHistory && (
+          <Tabs.Panel id="migrations">
+            <MigrationsTab isActive={activeTab === 'migrations'} />
+          </Tabs.Panel>
+        )}
       </Tabs>
     </Box>
   );

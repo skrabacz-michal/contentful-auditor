@@ -1,4 +1,4 @@
-import type { AssetProps, ContentTypeProps, EntryProps } from 'contentful-management';
+import type { AssetProps, ContentTypeProps, EntryProps, LocaleProps } from 'contentful-management';
 import type { Finding } from './types';
 
 export type MetricScores = {
@@ -42,19 +42,42 @@ function computeCompleteness(entries: EntryProps[], contentTypes: ContentTypePro
   return total === 0 ? 100 : Math.round((filled / total) * 100);
 }
 
-function computeTranslation(entries: EntryProps[], localeCount: number): number {
-  if (localeCount <= 1 || entries.length === 0) return 100;
+function extractMarketSuffix(tagId: string): string | null {
+  const match = tagId.match(/[A-Z][a-zA-Z0-9]*$/);
+  return match ? match[0] : null;
+}
+
+function computeTranslation(entries: EntryProps[], locales: LocaleProps[]): number {
+  const localeCodes = locales.map((l) => l.code);
   let totalCoverage = 0;
+  let taggedCount = 0;
+
   for (const entry of entries) {
-    const presentLocales = new Set<string>();
-    for (const localeMap of Object.values(entry.fields)) {
-      for (const [locale, value] of Object.entries(localeMap as Record<string, unknown>)) {
-        if (!isEmpty(value)) presentLocales.add(locale);
+    const tags = entry.metadata?.tags?.map((t) => t.sys.id) ?? [];
+    const requiredLocales = new Set<string>();
+
+    for (const tagId of tags) {
+      const suffix = extractMarketSuffix(tagId);
+      if (!suffix) continue;
+      for (const code of localeCodes) {
+        if (code.endsWith(`-${suffix}`)) requiredLocales.add(code);
       }
     }
-    totalCoverage += Math.min(presentLocales.size / localeCount, 1);
+
+    if (requiredLocales.size === 0) continue;
+    taggedCount++;
+
+    const coveredLocales = new Set<string>();
+    for (const localeMap of Object.values(entry.fields)) {
+      for (const [locale, value] of Object.entries(localeMap as Record<string, unknown>)) {
+        if (requiredLocales.has(locale) && !isEmpty(value)) coveredLocales.add(locale);
+      }
+    }
+
+    totalCoverage += coveredLocales.size / requiredLocales.size;
   }
-  return Math.round((totalCoverage / entries.length) * 100);
+
+  return taggedCount === 0 ? 100 : Math.round((totalCoverage / taggedCount) * 100);
 }
 
 function computeFreshness(entries: EntryProps[], now: Date): number {
@@ -131,13 +154,13 @@ export function computeMetrics(
   entries: EntryProps[],
   assets: AssetProps[],
   contentTypes: ContentTypeProps[],
-  localeCount: number,
+  locales: LocaleProps[],
   findings: Finding[] = [],
   now = new Date()
 ): MetricScores {
   return {
     completeness: computeCompleteness(entries, contentTypes),
-    translation: computeTranslation(entries, localeCount),
+    translation: computeTranslation(entries, locales),
     freshness: computeFreshness(entries, now),
     structure: computeStructure(entries),
     integrity: computeIntegrity(entries, assets),

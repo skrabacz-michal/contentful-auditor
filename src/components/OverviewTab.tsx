@@ -35,7 +35,7 @@ const METRIC_LABELS: Record<keyof MetricScores, string> = {
   structure: 'Structure',
   integrity: 'Integrity',
   publishRate: 'Publish Rate',
-  issues: 'Issues',
+  issues: 'Issue Health',
 };
 
 const METRIC_DESCRIPTIONS: Record<keyof MetricScores, string> = {

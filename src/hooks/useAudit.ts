@@ -20,6 +20,7 @@ export type AuditState = {
   contentModel: CategoryState;
   content: CategoryState;
   metrics: MetricScores | null;
+  hasMigrationHistory: boolean;
 };
 
 type AuditAction =
@@ -28,7 +29,7 @@ type AuditAction =
   | { type: 'FETCH_PROGRESS'; fetched: number; total: number }
   | { type: 'CATEGORY_COMPLETE'; category: 'contentModel' | 'content'; findings: Finding[] }
   | { type: 'CATEGORY_ERROR'; category: 'contentModel' | 'content'; error: string }
-  | { type: 'COMPLETE'; metrics: MetricScores };
+  | { type: 'COMPLETE'; metrics: MetricScores; hasMigrationHistory: boolean };
 
 const idle: CategoryState = { status: 'idle', findings: [] };
 
@@ -38,6 +39,7 @@ const initialState: AuditState = {
   contentModel: idle,
   content: idle,
   metrics: null,
+  hasMigrationHistory: false,
 };
 
 function reducer(state: AuditState, action: AuditAction): AuditState {
@@ -62,7 +64,7 @@ function reducer(state: AuditState, action: AuditAction): AuditState {
         [action.category]: { status: 'error', findings: [], error: action.error },
       };
     case 'COMPLETE':
-      return { ...state, overallStatus: 'complete', progress: null, metrics: action.metrics };
+      return { ...state, overallStatus: 'complete', progress: null, metrics: action.metrics, hasMigrationHistory: action.hasMigrationHistory };
     default:
       return state;
   }
@@ -123,7 +125,7 @@ export function useAudit() {
       ]);
 
       const filteredEntries = entries.filter(
-        (e) => !EXCLUDED_CONTENT_TYPE_IDS.has(e.sys.contentType.sys.id)
+        (e) => !EXCLUDED_CONTENT_TYPE_IDS.has(e.sys.contentType.sys.id) && !e.sys.archivedVersion
       );
       const filteredContentTypes = contentTypes.filter(
         (ct) => !EXCLUDED_CONTENT_TYPE_IDS.has(ct.sys.id)
@@ -141,7 +143,7 @@ export function useAudit() {
             return [] as Finding[];
           }),
         Promise.resolve()
-          .then(() => runContentChecks(entries, assets, contentTypes))
+          .then(() => runContentChecks(filteredEntries, assets, contentTypes))
           .then((findings) => {
             dispatch({ type: 'CATEGORY_COMPLETE', category: 'content', findings });
             return findings;
@@ -153,13 +155,14 @@ export function useAudit() {
       ]);
 
       const allFindings = [...contentModelFindings, ...contentFindings];
-      const metrics = computeMetrics(filteredEntries, assets, filteredContentTypes, locales.length, allFindings);
-      dispatch({ type: 'COMPLETE', metrics });
+      const metrics = computeMetrics(filteredEntries, assets, filteredContentTypes, locales, allFindings);
+      const hasMigrationHistory = contentTypes.some((ct) => ct.sys.id === 'migrationHistory');
+      dispatch({ type: 'COMPLETE', metrics, hasMigrationHistory });
     } catch (e) {
       const msg = errorMessage(e);
       dispatch({ type: 'CATEGORY_ERROR', category: 'contentModel', error: msg });
       dispatch({ type: 'CATEGORY_ERROR', category: 'content', error: msg });
-      dispatch({ type: 'COMPLETE', metrics: computeMetrics([], [], [], 1, []) });
+      dispatch({ type: 'COMPLETE', metrics: computeMetrics([], [], [], [], []), hasMigrationHistory: false });
     }
   }, [sdk]);
 

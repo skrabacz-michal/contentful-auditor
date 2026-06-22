@@ -2,7 +2,8 @@ export type Severity = 'error' | 'warning' | 'info';
 
 export type NavigationTarget =
   | { type: 'contentType'; id: string }
-  | { type: 'entry'; id: string };
+  | { type: 'entry'; id: string }
+  | { type: 'asset'; id: string };
 
 export type Finding = {
   id: string;
